@@ -56,6 +56,10 @@ jobs:
           pip install -r requirements.txt
           pip install pytest-cov
       
+      - name: Initialize Database
+        run: |
+          python scripts/load_data_duckdb.py
+      
       - name: Run unit tests
         run: |
           pytest tests/ -v --cov=. --cov-report=xml
