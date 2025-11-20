@@ -117,7 +117,7 @@ jobs:
       
       - name: Install Great Expectations
         run: |
-          pip install great-expectations duckdb
+          pip install great-expectations duckdb pyyaml
       
       - name: Validate configurations
         run: |
