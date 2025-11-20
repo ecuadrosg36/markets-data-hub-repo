@@ -1,4 +1,18 @@
-
 [flake8]
-max-line-length = 120
-ignore = E203,W503
+max-line-length = 127
+exclude = 
+    .git,
+    __pycache__,
+    build,
+    dist,
+    .venv,
+    venv
+# Ignore specific errors for Databricks notebooks
+ignore = 
+    F405,  # may be undefined, or defined from star imports
+    F403,  # star import used; unable to detect undefined names
+    F821,  # undefined name (for dbutils, spark in Databricks)
+    E402,  # module level import not at top of file (common in notebooks)
+per-file-ignores =
+    databricks/notebooks/*:F821,E402
+    */notebooks/*:F821,E402
