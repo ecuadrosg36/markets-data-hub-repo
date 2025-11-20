@@ -9,6 +9,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
 import sys
+
 sys.path.append("/Workspace/Repos/markets-data-hub-repo")
 
 from config.config_loader import get_config
@@ -35,37 +36,28 @@ silver_trades = (
     bronze_trades
     # Standardize trade_type
     .withColumn("trade_type", upper(trim(col("trade_type"))))
-    
     # Standardize currency
     .withColumn("currency", upper(trim(col("currency"))))
-    
     # Standardize status
-    .withColumn("status", 
-        when(col("status").isNull(), "OPEN")
-        .otherwise(upper(trim(col("status"))))
+    .withColumn(
+        "status",
+        when(col("status").isNull(), "OPEN").otherwise(upper(trim(col("status")))),
     )
-    
     # Add business day calculation
-    .withColumn("settlement_days",
-        datediff(col("settlement_date"), col("trade_date"))
-    )
-    
+    .withColumn("settlement_days", datediff(col("settlement_date"), col("trade_date")))
     # Calculate trade notional
-    .withColumn("notional_value",
-        col("quantity") * col("price")
-    )
-    
+    .withColumn("notional_value", col("quantity") * col("price"))
     # Add validation flags
-    .withColumn("is_valid",
+    .withColumn(
+        "is_valid",
         when(
-            (col("quantity") > 0) &
-            (col("price") > 0) &
-            (col("trade_type").isin("BUY", "SELL")) &
-            (col("settlement_date") >= col("trade_date")),
-            lit(True)
-        ).otherwise(lit(False))
+            (col("quantity") > 0)
+            & (col("price") > 0)
+            & (col("trade_type").isin("BUY", "SELL"))
+            & (col("settlement_date") >= col("trade_date")),
+            lit(True),
+        ).otherwise(lit(False)),
     )
-    
     # Add processing timestamp
     .withColumn("silver_processed_at", current_timestamp())
 )
@@ -93,9 +85,7 @@ silver_trades_final = silver_trades_clean.filter(col("is_valid") == True)
 logger.info(f"Writing to Silver layer: {config.silver_path}/trades")
 
 (
-    silver_trades_final
-    .write
-    .format("delta")
+    silver_trades_final.write.format("delta")
     .mode("overwrite")
     .partitionBy("year", "month")
     .option("overwriteSchema", "true")
@@ -108,12 +98,11 @@ logger.info("Silver trades normalization complete")
 
 # Summary statistics
 display(
-    silver_trades_final
-    .groupBy("trade_type", "currency", "status")
+    silver_trades_final.groupBy("trade_type", "currency", "status")
     .agg(
         count("*").alias("trade_count"),
         sum("notional_value").alias("total_notional"),
-        avg("price").alias("avg_price")
+        avg("price").alias("avg_price"),
     )
     .orderBy("trade_type", "currency")
 )
