@@ -1,0 +1,24 @@
+
+# Control-M Job as Code (YAML mock)
+flows:
+  - name: markets_data_hub_daily
+    schedule: "0 2 * * *"   # 2 AM daily
+    jobs:
+      - id: ingest_prices
+        type: databricks.notebook
+        params:
+          notebook: databricks/notebooks/01_ingest_prices.scala
+      - id: trades_to_positions
+        type: databricks.notebook
+        depends_on: [ingest_prices]
+        params:
+          notebook: databricks/notebooks/02_trades_to_positions.py
+      - id: compute_risk_metrics
+        type: databricks.sql
+        depends_on: [trades_to_positions]
+        params:
+          script: databricks/notebooks/03_risk_metrics.sql
+    sla_minutes: 60
+    alerts:
+      on_failure: "markets-alerts@company.com"
+      on_sla_breach: "risk-ops@company.com"

@@ -1,0 +1,47 @@
+project:
+  name: markets-data-hub
+  version: "1.0.0"
+  description: "Market Risk Analytics Platform"
+
+# Databricks configuration
+databricks:
+  host: "https://your-databricks-workspace.cloud.databricks.com"
+  cluster_id: "your-cluster-id"
+  catalog: "hive_metastore"
+  schema: "market_risk"
+
+# Data paths
+data:
+  bronze_path: "dbfs:/mnt/bronze/markets"
+  silver_path: "dbfs:/mnt/silver/markets"
+  gold_path: "dbfs:/mnt/gold/markets"
+  source_path: "dbfs:/mnt/raw/markets"
+
+# Risk calculation parameters
+risk:
+  var_confidence_levels: [0.95, 0.99]
+  cvar_confidence_levels: [0.95, 0.99]
+  lookback_days: 252  # One trading year
+  scenarios:
+    - name: "stress_2008"
+      description: "Financial crisis scenario"
+    - name: "stress_covid"
+      description: "COVID-19 pandemic scenario"
+
+# Data quality thresholds
+quality:
+  max_null_percentage: 0.05  # 5%
+  min_row_count: 100
+  max_duplicate_percentage: 0.01  # 1%
+
+# Airflow configuration
+airflow:
+  dag_schedule: "0 6 * * *"  # Daily at 6 AM
+  sla_hours: 4
+  retries: 3
+  retry_delay_minutes: 5
+
+# Logging
+logging:
+  level: "INFO"
+  format: "json"

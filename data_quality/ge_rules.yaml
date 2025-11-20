@@ -1,0 +1,83 @@
+# Great Expectations Configuration for Markets Data Hub
+
+# Trades Expectations
+expectations:
+  trades:
+    - name: "trades_unique_id"
+      expectation_type: "expect_column_values_to_be_unique"
+      column: "trade_id"
+    
+    - name: "trades_no_null_id"
+      expectation_type: "expect_column_values_to_not_be_null"
+      column: "trade_id"
+    
+    - name: "trades_valid_type"
+      expectation_type: "expect_column_values_to_be_in_set"
+      column: "trade_type"
+      value_set: ["BUY", "SELL"]
+    
+    - name: "trades_positive_quantity"
+      expectation_type: "expect_column_values_to_be_between"
+      column: "quantity"
+      min_value: 0
+      max_value: 1000000
+    
+    - name: "trades_positive_price"
+      expectation_type: "expect_column_values_to_be_between"
+      column: "price"
+      min_value: 0
+      max_value: 100000
+  
+  # Market Prices Expectations
+  prices:
+    - name: "prices_unique_id"
+      expectation_type: "expect_column_values_to_be_unique"
+      column: "price_id"
+    
+    - name: "prices_no_null_close"
+      expectation_type: "expect_column_values_to_not_be_null"
+      column: "close_price"
+    
+    - name: "prices_positive_close"
+      expectation_type: "expect_column_values_to_be_between"
+      column: "close_price"
+      min_value: 0
+      max_value: 1000000
+    
+    - name: "prices_high_low_check"
+      expectation_type: "expect_column_pair_values_a_to_be_greater_than_b"
+      column_a: "high_price"
+      column_b: "low_price"
+  
+  # Risk Metrics Expectations
+  risk_metrics:
+    - name": "var_95_bounds"
+      expectation_type: "expect_column_values_to_be_between"
+      column: "var_95"
+      min_value: 0
+      max_value: 100000000
+    
+    - name: "var_99_greater_than_95"
+      expectation_type: "expect_column_pair_values_a_to_be_greater_than_b"
+      column_a: "var_99"
+      column_b: "var_95"
+    
+    - name: "pnl_reasonable_bounds"
+      expectation_type: "expect_column_values_to_be_between"
+      column: "daily_pnl"
+      min_value: -50000000
+      max_value: 50000000
+
+# Checkpoints
+checkpoints:
+  bronze_validation:
+    tables: ["trades", "prices"]
+    expectations: ["trades", "prices"]
+  
+  silver_validation:
+    tables: ["trades_normalized"]
+    expectations: ["trades"]
+  
+  gold_validation:
+    tables: ["risk_metrics"]
+    expectations: ["risk_metrics"]

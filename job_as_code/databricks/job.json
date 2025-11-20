@@ -1,0 +1,45 @@
+{
+  "name": "markets_data_hub_daily",
+  "tasks": [
+    {
+      "task_key": "ingest_prices",
+      "notebook_task": {
+        "notebook_path": "/Repos/markets/01_ingest_prices"
+      },
+      "job_cluster_key": "standard"
+    },
+    {
+      "task_key": "trades_to_positions",
+      "depends_on": [
+        {
+          "task_key": "ingest_prices"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "/Repos/markets/02_trades_to_positions"
+      },
+      "job_cluster_key": "standard"
+    },
+    {
+      "task_key": "compute_risk_metrics",
+      "depends_on": [
+        {
+          "task_key": "trades_to_positions"
+        }
+      ],
+      "sql_task": {
+        "query": "gold.risk_metrics refresh"
+      },
+      "job_cluster_key": "standard"
+    }
+  ],
+  "job_clusters": [
+    {
+      "job_cluster_key": "standard",
+      "new_cluster": {
+        "spark_version": "14.3.x-scala2.12",
+        "num_workers": 2
+      }
+    }
+  ]
+}
