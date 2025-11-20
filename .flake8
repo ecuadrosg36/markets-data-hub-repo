@@ -7,12 +7,14 @@ exclude =
     dist,
     .venv,
     venv
-# Ignore specific errors for Databricks notebooks
+# F401: imported but unused (common in notebooks for setup)
 # F405: may be undefined, or defined from star imports
 # F403: star import used; unable to detect undefined names
 # F821: undefined name (for dbutils, spark in Databricks)
 # E402: module level import not at top of file (common in notebooks)
-ignore = F405,F403,F821,E402
+# W503: line break before binary operator (PEP 8 recommends this style)
+# E712: comparison to True/False (sometimes needed for explicit checks)
+ignore = F401,F405,F403,F821,E402,W503,E712
 per-file-ignores =
     databricks/notebooks/*:F821,E402
     */notebooks/*:F821,E402
