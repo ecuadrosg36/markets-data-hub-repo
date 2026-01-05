@@ -49,30 +49,35 @@ BI Layer / Risk Dashboards
 ### Installation
 
 ```bash
-# Clone repository
+# 1. Clone repository
 git clone <repo-url>
 cd markets-data-hub-repo
 
-# Install dependencies
+# 2. Set up virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# Set environment variables
-export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
-export DATABRICKS_TOKEN=your-token
-
-# Configure Airflow (local development)
-docker compose -f docker/airflow-compose.yml up -d
+# 4. Initialize Local Database (DuckDB)
+# This Step is CRITICAL for tests and local development
+python scripts/load_data_duckdb.py
 ```
 
-### Run Pipeline
+### Run and Test
 
 ```bash
-# Deploy to Databricks
-databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-repo/databricks/notebooks
+# Run unit and integration tests
+python -m pytest tests/ -v
 
-# Trigger Airflow DAG
-# Navigate to http://localhost:8080
-# Enable and trigger: markets_data_hub_etl
+# Verify Data Quality rules (YAML check)
+python -c "import yaml; yaml.safe_load(open('data_quality/ge_rules.yaml'))"
+
+# Deploy to Databricks (Cloud)
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
+export DATABRICKS_TOKEN=your-token
+databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-repo/databricks/notebooks
 ```
 
 ## 📁 Project Structure

@@ -51,7 +51,7 @@ expectations:
   
   # Risk Metrics Expectations
   risk_metrics:
-    - name": "var_95_bounds"
+    - name: "var_95_bounds"
       expectation_type: "expect_column_values_to_be_between"
       column: "var_95"
       min_value: 0
