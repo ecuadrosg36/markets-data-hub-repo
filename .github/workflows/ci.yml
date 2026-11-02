@@ -75,29 +75,38 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test]
     if: github.ref == 'refs/heads/main'
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
     
     steps:
+      - name: Skip when Databricks is not set up
+        if: env.DATABRICKS_TOKEN == ''
+        run: echo "::notice::No Databricks credentials set, so deploy is skipped."
+
       - name: Checkout code
+        if: env.DATABRICKS_TOKEN != ''
         uses: actions/checkout@v4
       
       - name: Set up Databricks CLI
+        if: env.DATABRICKS_TOKEN != ''
         run: |
           pip install databricks-cli
       
       - name: Configure Databricks CLI
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        if: env.DATABRICKS_TOKEN != ''
         run: |
           echo "[DEFAULT]" > ~/.databricksrc
           echo "host = $DATABRICKS_HOST" >> ~/.databricksrc
           echo "token = $DATABRICKS_TOKEN" >> ~/.databricksrc
       
       - name: Deploy notebooks
+        if: env.DATABRICKS_TOKEN != ''
         run: |
           databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-repo/databricks/notebooks --overwrite
       
       - name: Deploy SQL models
+        if: env.DATABRICKS_TOKEN != ''
         run: |
           databricks workspace import_dir sql/models /Repos/markets-data-hub-repo/sql/models --overwrite
 
