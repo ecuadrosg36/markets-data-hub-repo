@@ -1,7 +1,6 @@
-# Markets Data Hub — Production Market Risk Analytics Platform
-<!-- test git visibility -->
+# Markets Data Hub — Market Risk Analytics Pipeline
 
-A **production-grade market risk analytics platform** built with **Databricks**, **Apache Spark**, **Airflow**, and **Control-M** for end-to-end risk calculation and reporting.
+A market risk data pipeline on **Databricks** (PySpark, Delta Lake), orchestrated with **Airflow** and **Control-M**. It ingests trades and market prices, builds positions and computes **historical VaR**. DuckDB runs the SQL models locally for tests.
 
 ![Databricks](https://img.shields.io/badge/Databricks-Delta%20Lake-red)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
@@ -9,19 +8,19 @@ A **production-grade market risk analytics platform** built with **Databricks**,
 
 ## 🌟 Features
 
-### Core Capabilities
-- **Medallion Architecture**: Bronze → Silver → Gold data layers
-- **Risk Calculations**: VaR (95%, 99%), CVaR, Greeks, P&L attribution
-- **Real-time Orchestration**: Airflow + Control-M integration
-- **Data Quality**: Great Expectations validation at each layer
-- **Scalable Processing**: PySpark on Databricks with Delta Lake
+### Working today
+- **Medallion architecture**: Bronze → Silver → Gold notebooks writing Delta Lake tables
+- **Historical VaR (95%, 99%)**: 252-day lookback, per position and summed per portfolio (`databricks/notebooks/gold/01_calculate_var.py`)
+- **Exposure**: notional and market exposure from position market value
+- **Daily orchestration**: Airflow DAG at 6 AM with a 4-hour SLA, 3 retries and email on failure; Control-M flow and Databricks job specs as code
+- **Local runs**: DuckDB loads the sample CSVs and runs the SQL models for the tests
+- **CI**: Black, flake8, pytest with coverage, and notebook deploy to Databricks when credentials are set
 
-### Risk Analytics
-- **Value at Risk (VaR)**: Historical simulation method
-- **Conditional VaR (CVaR)**: Expected shortfall calculations
-- **Greeks**: Delta, Gamma, Vega, Theta, Rho
-- **P&L Attribution**: Daily, MTD, YTD tracking
-- **Exposure Analytics**: Counterparty, sector, instrument-level
+### Designed, not built yet
+The schema and the DAG already have a place for these, but nothing computes them yet:
+- **CVaR, Greeks (Delta, Gamma, Vega, Theta, Rho), daily/MTD/YTD P&L and credit exposure**: columns exist in `fct_risk_metrics`, filled with nulls
+- **Great Expectations checks**: rules are written in `data_quality/ge_rules.yaml`; the DAG's validation tasks are placeholders and CI only checks that the file parses
+- **P&L and exposure notebooks** referenced by the DAG (`gold/03_pnl_attribution`, `gold/04_exposure_analytics`) and the **BI publish** step
 
 ## 📊 Architecture
 
@@ -29,12 +28,12 @@ A **production-grade market risk analytics platform** built with **Databricks**,
 Sources (Trades, Prices, Positions)
     ↓
 Bronze Layer - Raw ingestion (Delta Lake)
-    ↓ Data Quality Gates
+    ↓ Data Quality Gates (rules written, not enforced yet)
 Silver Layer - Normalized & enriched
     ↓ Business Rules
-Gold Layer - Risk metrics (VaR, CVaR, Greeks, P&L)
+Gold Layer - Risk metrics (historical VaR, exposure)
     ↓
-BI Layer / Risk Dashboards
+BI Layer / Risk Dashboards (planned)
 ```
 
 **Orchestration**: Apache Airflow + Control-M Job-as-Code
@@ -109,7 +108,7 @@ databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-rep
 │   └── config_loader.py                 # Config management
 ├── utils/
 │   └── logger.py                        # Structured logging
-└── tests/                               # Unit & integration tests
+└── tests/                               # pytest on the DuckDB models
 ```
 
 ## 🎯 Key Models
@@ -122,7 +121,7 @@ databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-rep
 ### Facts
 - **fct_market_prices**: EOD market prices
 - **fct_positions**: Daily position snapshots
-- **fct_risk_metrics**: VaR, CVaR, Greeks, P&L, exposures
+- **fct_risk_metrics**: VaR and exposure (CVaR, Greeks and P&L columns exist, not filled yet)
 
 ## 🔬 Risk Calculations
 
@@ -132,31 +131,20 @@ databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-rep
 - **Confidence Levels**: 95%, 99%
 - **Calculation**: Position-level and portfolio-level
 
-### Greeks (Derivatives)
-- Delta, Gamma, Vega, Theta, Rho
-- Used for options and structured products
-
-### P&L Attribution
-- Daily P&L
-- Month-to-date (MTD)
-- Year-to-date (YTD)
+### Greeks and P&L (planned)
+Columns for Delta, Gamma, Vega, Theta, Rho and daily/MTD/YTD P&L are in the schema; the calculations are not written yet.
 
 ## 🧪 Testing
 
 ```bash
-# Unit tests
+# Load the sample data into DuckDB, then run the tests
+python scripts/load_data_duckdb.py
 pytest tests/ -v
-
-# Integration tests (DuckDB)
-pytest tests/integration/ -v
-
-# Data quality tests
-great-expectations checkpoint run bronze_validation
 ```
 
 ## 📦 Data Quality
 
-Great Expectations validations:
+Great Expectations rules in `data_quality/ge_rules.yaml` (written, not run by the pipeline yet):
 - **Uniqueness**: trade_id, price_id
 - **Null checks**: Critical fields
 - **Range validation**: Prices, quantities, VaR values
@@ -167,8 +155,8 @@ Great Expectations validations:
 GitHub Actions workflow:
 1. **Lint**: Black + flake8
 2. **Test**: pytest with coverage
-3. **Deploy**: Databricks notebook deployment
-4. **Quality Gates**: Great Expectations validation
+3. **Deploy**: Databricks notebook deployment (skipped when credentials are not set)
+4. **Quality Gates**: checks that the Great Expectations rules file is valid YAML
 
 ## 🛠️ Control-M Integration
 
@@ -180,25 +168,17 @@ Job-as-Code configuration:
 
 ## 📊 Monitoring & Observability
 
-- **Structured Logging**: JSON-formatted logs
-- **SLA Tracking**: 4-hour SLA with alerts
-- **Data Quality Reports**: Automated validation
-- **Error Handling**: Retry logic with exponential backoff
+- **Structured Logging**: JSON-formatted logs (`utils/logger.py`)
+- **SLA Tracking**: 4-hour SLA in the Airflow DAG, email on failure
+- **Error Handling**: 3 retries, 5 minutes apart
 
 ## 🚦 Deployment
 
-### Development
+Notebooks are deployed with the Databricks CLI, as in CI:
 ```bash
-# Deploy to dev environment
-export ENV=dev
-python scripts/deploy.py --env dev
-```
-
-### Production
-```bash
-# Deploy to production
-export ENV=prod
-python scripts/deploy.py --env prod
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
+export DATABRICKS_TOKEN=your-token
+databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-repo/databricks/notebooks --overwrite
 ```
 
 ## 📝 Configuration
@@ -227,15 +207,11 @@ airflow:
 
 ## 📚 Documentation
 
-- [Architecture Guide](docs/architecture.md)
-- [Data Dictionary](docs/data_dictionary.md)
-- [Runbook](docs/runbook.md)
-- [Control-M Integration](job_as_code/controlm/README.md)
+- [Architecture (Spanish)](docs/arquitectura.md)
+- [Market risk basics](docs/market_risk_basics.md)
+- [Operating procedures (Spanish)](docs/procedimientos_operativos.md)
+- [Control-M flow](job_as_code/controlm/flow.yaml)
 
 ## 📄 License
 
 MIT License
-
----
-
-**Built for production market risk analytics** 🚀
