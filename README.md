@@ -1,6 +1,6 @@
 # Markets Data Hub — Market Risk Analytics Pipeline
 
-A market risk data pipeline on **Databricks** (PySpark, Delta Lake), orchestrated with **Airflow** and **Control-M**. It ingests trades and market prices, builds positions and computes **historical VaR**. DuckDB runs the SQL models locally for tests.
+A market risk data pipeline on **Databricks** (PySpark, Delta Lake), orchestrated with **Airflow** and **Control-M**. It ingests trades and market prices, builds positions and their market value. A historical VaR notebook is written but not wired in yet. DuckDB runs the SQL models locally for tests.
 
 ![Databricks](https://img.shields.io/badge/Databricks-Delta%20Lake-red)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
@@ -9,12 +9,14 @@ A market risk data pipeline on **Databricks** (PySpark, Delta Lake), orchestrate
 ## 🌟 Features
 
 ### Working today
-- **Medallion architecture**: Bronze → Silver → Gold notebooks writing Delta Lake tables
-- **Historical VaR (95%, 99%)**: 252-day lookback, per position and summed per portfolio (`databricks/notebooks/gold/01_calculate_var.py`)
-- **Exposure**: notional and market exposure from position market value
-- **Daily orchestration**: Airflow DAG at 6 AM with a 4-hour SLA, 3 retries and email on failure; Control-M flow and Databricks job specs as code
-- **Local runs**: DuckDB loads the sample CSVs and runs the SQL models for the tests
-- **CI**: Black, flake8, pytest with coverage, and notebook deploy to Databricks when credentials are set
+- **Prices → positions → market value**: `01_ingest_prices.scala` cleans prices into Bronze, `02_trades_to_positions.py` sums trades into a net position per instrument (Silver), and `03_risk_metrics.sql` multiplies each position by its last close (Gold)
+- **Jobs as code**: the Databricks job (`job_as_code/databricks/job.json`) and the Control-M flow (`job_as_code/controlm/flow.yaml`) run that three-step chain
+- **Local runs**: DuckDB loads the sample CSVs and runs the same chain as SQL models (`sql/models`) for the tests
+- **CI**: Black, flake8, and pytest with coverage on the DuckDB models; notebook deploy to Databricks runs only when credentials are set
+
+### Written, not wired in yet
+- **Historical VaR (95%, 99%)**: 252-day lookback, per position and summed per portfolio, plus exposure from market value (`databricks/notebooks/gold/01_calculate_var.py`). It reads `silver/market_prices`, but the price notebooks write Bronze only, so no step creates its input yet
+- **Airflow DAG**: daily at 6 AM with a 4-hour SLA, 3 retries and email on failure, but it calls notebooks that are not in the repo (`bronze/03_ingest_positions`, `silver/02_enrich_market_data`, `gold/03_pnl_attribution`, `gold/04_exposure_analytics`)
 
 ### Designed, not built yet
 The schema and the DAG already have a place for these, but nothing computes them yet:
@@ -31,7 +33,7 @@ Bronze Layer - Raw ingestion (Delta Lake)
     ↓ Data Quality Gates (rules written, not enforced yet)
 Silver Layer - Normalized & enriched
     ↓ Business Rules
-Gold Layer - Risk metrics (historical VaR, exposure)
+Gold Layer - Market value per position (VaR notebook written, not wired)
     ↓
 BI Layer / Risk Dashboards (planned)
 ```
@@ -121,7 +123,7 @@ databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-rep
 ### Facts
 - **fct_market_prices**: EOD market prices
 - **fct_positions**: Daily position snapshots
-- **fct_risk_metrics**: VaR and exposure (CVaR, Greeks and P&L columns exist, not filled yet)
+- **fct_risk_metrics**: VaR and exposure, filled once the VaR notebook is wired in (CVaR, Greeks and P&L columns exist, not filled yet)
 
 ## 🔬 Risk Calculations
 
@@ -130,6 +132,7 @@ databricks workspace import_dir databricks/notebooks /Repos/markets-data-hub-rep
 - **Lookback**: 252 trading days
 - **Confidence Levels**: 95%, 99%
 - **Calculation**: Position-level and portfolio-level
+- **Status**: the notebook is written but its Silver price input is not built yet, so it does not run in the pipeline
 
 ### Greeks and P&L (planned)
 Columns for Delta, Gamma, Vega, Theta, Rho and daily/MTD/YTD P&L are in the schema; the calculations are not written yet.
